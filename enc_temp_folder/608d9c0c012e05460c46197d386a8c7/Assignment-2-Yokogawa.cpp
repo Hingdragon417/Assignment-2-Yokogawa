@@ -26,7 +26,7 @@ int add_line(std::vector<std::string>& lines) {
 	std::string line;
 	std::getline(std::cin, line);
 	lines.push_back(line);
-	std::cout << "Line added successfully. Total letters " << line.size() << std::endl;
+	std::cout << "Line added successfully. Total words " << line.size() << std::endl;
 	return 0;
 }
 
