@@ -10,13 +10,14 @@ using namespace std;
 // Function to add a line of text
 int add_line(std::vector<std::string>& lines) {
 	std::cout << "Enter a line of text to add: ";
-	std::string line; 
+	std::string line;
 	std::getline(std::cin, line);
 	lines.push_back(line);
 	std::cout << "Line added successfully. Total words " << line.size() << std::endl;
-	return 0; 
+	return 0;
 }
 
+// Function to trim whitespace from both ends of a string
 std::string trim(const std::string& str) {
 	size_t first = str.find_first_not_of(" \t\n\r");
 	if (first == std::string::npos) {
@@ -26,9 +27,10 @@ std::string trim(const std::string& str) {
 	return str.substr(first, (last - first + 1));
 }
 
+// Function to output all stored lines
 int output_data(const std::vector<std::string>& lines) {
 	if (lines.empty()) {
-		std::cout << "No lines stored." << std::endl; 
+		std::cout << "No lines stored." << std::endl;
 	}
 	else {
 		std::cout << "Stored lines:" << std::endl;
@@ -39,10 +41,26 @@ int output_data(const std::vector<std::string>& lines) {
 	return 0;
 }
 
-int read_from_file(std::vector<std::string>& lines, const std::string& filename) {
-	std::ifstream infile(filename);
+// Function to read lines from a file
+int read_from_file(std::vector<std::string>& lines, const std::string& default_file) {
+
+	std::cout << "Please enter a filename: ";
+	std::string filename_input;
+	std::cin >> filename_input;
+	std::cin.ignore();
+	filename_input += ".txt";
+
+	std::string file;
+	if (filename_input.empty()) {
+		file = default_file;
+	}
+	else {
+		file = filename_input;
+	}
+
+	std::ifstream infile(file);
 	if (!infile) {
-		std::cerr << "Error opening file: " << filename << std::endl;
+		std::cerr << "Error opening file: " << file << std::endl;
 		return 1;
 	}
 	std::string line;
@@ -50,12 +68,13 @@ int read_from_file(std::vector<std::string>& lines, const std::string& filename)
 		lines.push_back(line);
 		cout << line << endl;
 	}
-	
-	std::cout << "Lines read from " << filename << " successfully." << std::endl;
+
+	std::cout << "Lines read from " << file << " successfully." << std::endl;
 	infile.close();
 	return 0;
 }
 
+// Function to write lines to a file
 int write_to_file(const std::vector<std::string>& lines, const std::string& filename) {
 	std::cout << "Please enter a filename: ";
 	std::string filename_input;
@@ -78,6 +97,7 @@ int write_to_file(const std::vector<std::string>& lines, const std::string& file
 	return 0;
 }
 
+// Function to insert a line before a specified line number
 int insert_line_before(std::vector<std::string>& lines) {
 	std::cout << "Please enter a line number to insert before: ";
 	std::string input;
@@ -109,6 +129,7 @@ int insert_line_before(std::vector<std::string>& lines) {
 	return 0;
 }
 
+// Function to delete a specified line
 int delete_line(std::vector<std::string>& lines) {
 
 	if (lines.empty()) {
@@ -138,15 +159,16 @@ int delete_line(std::vector<std::string>& lines) {
 		std::cout << "Invalid line number" << std::endl;
 		return 1;
 	}
-	
+
 	lines.erase(lines.begin() + line_number - 1);
 	std::cout << "Line " << line_number << " deleted successfully." << std::endl;
 	return 0;
 }
 
+// Main function
 int main()
 {
-	std::vector<std::string> lines; 
+	std::vector<std::string> lines;
 
 	while (true) {
 		std::cout << "Enter a string (or 'exit' to quit): ";
