@@ -284,7 +284,6 @@ int main()
 				delete_line(lines);
 			}
 
-			// ask for confirmation when exiting if there are unsaved changes
 			if (input == "e" || input == "exit") {
 				if (is_dirty) {
 					if (!dialogue_comfirm("You have unsaved changes. Are you sure you want to exit?")) {
