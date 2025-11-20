@@ -5,6 +5,7 @@
 #include <cctype>
 #include <algorithm>
 #include <climits>
+#include <limits>
 
 using namespace std;
 
@@ -32,6 +33,28 @@ int dialogue_comfirm(const std::string& stringmessage) {
 	std::transform(response.begin(), response.end(), response.begin(), ::tolower);
 
 	return response == "y";
+}
+
+// Print statistics: number of lines and shortest/longest line lengths
+void print_line_stats(const std::vector<std::string>& lines, const std::string& filename) {
+	size_t count = lines.size();
+	if (count == 0) {
+		std::cout << "File '" << filename << "': 0 lines. Shortest = 0, Longest = 0" << std::endl;
+		return;
+	}
+
+	size_t min_len = std::numeric_limits<size_t>::max();
+	size_t max_len = 0;
+
+	for (const auto& l : lines) {
+		size_t len = l.size();
+		if (len < min_len) min_len = len;
+		if (len > max_len) max_len = len;
+	}
+
+	std::cout << "File '" << filename << "': " << count
+		<< " lines. Shortest = " << min_len
+		<< ", Longest = " << max_len << std::endl;
 }
 
 // Function to add a line of text
@@ -133,16 +156,22 @@ int read_from_file(std::vector<std::string>& lines, const std::string& default_f
 		return 1;
 	}
 	std::string line;
+	std::vector<std::string> file_lines;
 	while (std::getline(infile, line)) {
-		lines.push_back(line);
+		file_lines.push_back(line);
 		std::cout << line << std::endl;
 	}
 
 	infile.close();
+	// append read lines into buffer
+	lines.insert(lines.end(), file_lines.begin(), file_lines.end());
 	// reading from disk means buffer matches disk => not dirty
 	is_dirty = false;
 
 	std::cout << "Lines read from " << file << " successfully." << std::endl;
+
+	// Print stats for the file that was read
+	print_line_stats(file_lines, file);
 
 	if (dialogue_comfirm("Would you like to write to this file?")) {
 		write_to_file(lines, file);
@@ -183,6 +212,10 @@ int write_to_file(const std::vector<std::string>& lines, const std::string& file
 	is_dirty = false;
 
 	std::cout << "Lines saved to " << final_name << " successfully." << std::endl;
+
+	// Print stats for the file that was written
+	print_line_stats(lines, final_name);
+
 	return 0;
 }
 
@@ -193,7 +226,7 @@ int insert_line_before(std::vector<std::string>& lines) {
 
 	std::string new_line = validate_input("Enter the line of text to insert: ", false, false);
 	lines.insert(lines.begin() + line_number - 1, new_line);
-	is_dirty = true; 
+	is_dirty = true;
 	std::cout << "Line inserted successfully before line " << line_number << "." << std::endl;
 	return 0;
 }
@@ -208,7 +241,7 @@ int delete_line(std::vector<std::string>& lines) {
 	int line_number = validate_int_input("Please enter a line number to delete: ", 1, static_cast<int>(lines.size()));
 
 	lines.erase(lines.begin() + line_number - 1);
-	is_dirty = true; 
+	is_dirty = true;
 	std::cout << "Line " << line_number << " deleted successfully." << std::endl;
 	return 0;
 }
@@ -260,6 +293,6 @@ int main()
 				}
 				break;
 			}
-		}	
+		}
 	}
 }
