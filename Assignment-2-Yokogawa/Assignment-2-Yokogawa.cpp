@@ -4,11 +4,25 @@
 #include <fstream>
 #include <cctype>
 #include <algorithm>
+#include <climits>
 
 using namespace std;
 
+// Track whether buffer has unsaved changes
+static bool is_dirty = false;
+
 // Forward declaration
 int write_to_file(const std::vector<std::string>& lines, const std::string& filename);
+
+// Function to trim whitespace from both ends of a string
+std::string trim(const std::string& str) {
+	size_t first = str.find_first_not_of(" \t\n\r");
+	if (first == std::string::npos) {
+		return "";
+	}
+	size_t last = str.find_last_not_of(" \t\n\r");
+	return str.substr(first, (last - first + 1));
+}
 
 // Function to confirm choices
 int dialogue_comfirm(const std::string& stringmessage) {
@@ -22,27 +36,75 @@ int dialogue_comfirm(const std::string& stringmessage) {
 
 // Function to add a line of text
 int add_line(std::vector<std::string>& lines) {
+	std::string line = "";
+	// Use validate_input to get a non-empty line
 	std::cout << "Enter a line of text to add: ";
-	std::string line;
 	std::getline(std::cin, line);
+	line = trim(line);
+	if (line.empty()) {
+		std::cout << "Error: Input cannot be empty. Line not added." << std::endl;
+		return 1;
+	}
 	lines.push_back(line);
+	is_dirty = true; // mark unsaved changes
 	std::cout << "Line added successfully. Total letters " << line.size() << std::endl;
 	return 0;
 }
 
 bool file_exists(const std::string& filename) {
-	std::ifstream file(filename); 
-	return file.good(); 
+	std::ifstream file(filename);
+	return file.good();
 }
 
-// Function to trim whitespace from both ends of a string
-std::string trim(const std::string& str) {
-	size_t first = str.find_first_not_of(" \t\n\r");
-	if (first == std::string::npos) {
-		return "";
+// Centralized input validation functions
+std::string validate_input(const std::string& prompt, bool allow_empty = false, bool numbers_only = false) {
+	while (true) {
+		std::cout << prompt;
+		std::string input;
+		std::getline(std::cin, input);
+		input = trim(input);
+
+		if (input.empty() && !allow_empty) {
+			std::cout << "Error: Input cannot be empty. Please try again." << std::endl;
+			continue;
+		}
+
+		if (numbers_only && !input.empty()) {
+			bool valid = true;
+			for (char c : input) {
+				if (!std::isdigit(static_cast<unsigned char>(c))) {
+					valid = false;
+					break;
+				}
+			}
+			if (!valid) {
+				std::cout << "Error: Please enter a valid number." << std::endl;
+				continue;
+			}
+		}
+
+		return input;
 	}
-	size_t last = str.find_last_not_of(" \t\n\r");
-	return str.substr(first, (last - first + 1));
+}
+
+int validate_int_input(const std::string& prompt, int min_value = INT_MIN, int max_value = INT_MAX) {
+	while (true) {
+		std::string input = validate_input(prompt, false, true);
+		try {
+			long value = std::stol(input);
+			if (value < min_value || value > max_value) {
+				std::cout << "Error: Number must be between " << min_value << " and " << max_value << "." << std::endl;
+				continue;
+			}
+			return static_cast<int>(value);
+		}
+		catch (const std::out_of_range&) {
+			std::cout << "Error: Number is out of range. Please try again." << std::endl;
+		}
+		catch (const std::invalid_argument&) {
+			std::cout << "Error: Invalid number format. Please try again." << std::endl;
+		}
+	}
 }
 
 // Function to output all stored lines
@@ -61,55 +123,53 @@ int output_data(const std::vector<std::string>& lines) {
 
 // Function to read lines from a file
 int read_from_file(std::vector<std::string>& lines, const std::string& default_file) {
-    std::cout << "Please enter a filename: ";
-    std::string filename_input;
-    std::cin >> filename_input;
-    std::cin.ignore();
-    filename_input += ".txt";
+	std::string filename_input = validate_input("Please enter a filename (leave empty to use default): ", true, false);
 
-    std::string file = filename_input.empty() ? default_file : filename_input;
+	std::string file = filename_input.empty() ? default_file : (trim(filename_input) + ".txt");
 
-    std::ifstream infile(file);
-    if (!infile) {
-        std::cerr << "Error opening file: " << file << std::endl;
-        return 1;
-    }
-    std::string line;
-    while (std::getline(infile, line)) {
-        lines.push_back(line);
-        std::cout << line << std::endl;
-    }
+	std::ifstream infile(file);
+	if (!infile) {
+		std::cerr << "Error opening file: " << file << std::endl;
+		return 1;
+	}
+	std::string line;
+	while (std::getline(infile, line)) {
+		lines.push_back(line);
+		std::cout << line << std::endl;
+	}
 
-    std::cout << "Lines read from " << file << " successfully." << std::endl;
+	infile.close();
+	// reading from disk means buffer matches disk => not dirty
+	is_dirty = false;
 
-    if (dialogue_comfirm("Would you like to write to this file?")) {
-        write_to_file(lines, file);
-    }
-    infile.close();
-    return 0;
+	std::cout << "Lines read from " << file << " successfully." << std::endl;
+
+	if (dialogue_comfirm("Would you like to write to this file?")) {
+		write_to_file(lines, file);
+	}
+	return 0;
 }
 
 // Function to write lines to a file
 int write_to_file(const std::vector<std::string>& lines, const std::string& filename) {
-	std::cout << "Please enter a filename: ";
-	std::string filename_input;
-	std::cin >> filename_input;
-	std::cin.ignore();
-	filename_input += ".txt";
-	
+	std::string prompt = "Please enter a filename (leave empty to use default '" + filename + "'): ";
+	std::string filename_input = validate_input(prompt, true, false);
+
+	std::string final_name = filename_input.empty() ? filename : (trim(filename_input) + ".txt");
+
 	// Check if file exists BEFORE opening it
-	if (file_exists(filename_input)) {
+	if (file_exists(final_name)) {
 		if (!dialogue_comfirm("File already exists. Would you like to overwrite it?")) {
 			std::cout << "File overwrite cancelled, no changes made." << std::endl;
-			return 0;  // Exit early
+			return 0; // Exit early
 		}
 	}
-	
+
 	// Now open the file for writing
-	std::ofstream outfile(filename_input);
+	std::ofstream outfile(final_name);
 
 	if (!outfile) {
-		std::cerr << "Error opening file for writing: " << filename_input << std::endl;
+		std::cerr << "Error opening file for writing: " << final_name << std::endl;
 		return 1;
 	}
 
@@ -119,74 +179,36 @@ int write_to_file(const std::vector<std::string>& lines, const std::string& file
 	}
 
 	outfile.close();
-	std::cout << "Lines saved to " << filename_input << " successfully." << std::endl;
+	// successful save -> buffer no longer dirty
+	is_dirty = false;
+
+	std::cout << "Lines saved to " << final_name << " successfully." << std::endl;
 	return 0;
 }
 
 // Function to insert a line before a specified line number
 int insert_line_before(std::vector<std::string>& lines) {
-	std::cout << "Please enter a line number to insert before: ";
-	std::string input;
-	std::getline(std::cin, input);
+	int max_line = static_cast<int>(lines.size()) + 1;
+	int line_number = validate_int_input("Please enter a line number to insert before: ", 1, max_line);
 
-	if (input.empty()) {
-		std::cout << "Invalid input. Please enter a number." << std::endl;
-		return 1;
-	}
-
-	for (char c : input) {
-		if (!isdigit(c)) {
-			std::cout << "Invalid input. Please enter a valid number." << std::endl;
-			return 1;
-		}
-	}
-
-	int line_number = std::stoi(input);
-	if (line_number < 1 || line_number > static_cast<int>(lines.size()) + 1) {
-		std::cout << "Invalid line number" << std::endl;
-		return 1;
-	}
-
-	std::cout << "Enter the line of text to insert: ";
-	std::string new_line;
-	std::getline(std::cin, new_line);
+	std::string new_line = validate_input("Enter the line of text to insert: ", false, false);
 	lines.insert(lines.begin() + line_number - 1, new_line);
+	is_dirty = true; 
 	std::cout << "Line inserted successfully before line " << line_number << "." << std::endl;
 	return 0;
 }
 
 // Function to delete a specified line
 int delete_line(std::vector<std::string>& lines) {
-
 	if (lines.empty()) {
 		std::cout << "No lines stored." << std::endl;
 		return 0;
 	}
 
-	std::cout << "Please enter a line number to delete: ";
-	std::string input;
-	std::getline(std::cin, input);
-
-	if (input.empty()) {
-		std::cout << "Invalid input. Please enter a number." << std::endl;
-		return 1;
-	}
-
-	for (char c : input) {
-		if (!isdigit(c)) {
-			std::cout << "Invalid input. Please enter a valid number." << std::endl;
-			return 1;
-		}
-	}
-
-	int line_number = std::stoi(input);
-
-	if (line_number < 1 || line_number > static_cast<int>(lines.size())) {
-		std::cout << "Invalid line number" << std::endl;
-		return 1;
-	}
+	int line_number = validate_int_input("Please enter a line number to delete: ", 1, static_cast<int>(lines.size()));
 
 	lines.erase(lines.begin() + line_number - 1);
+	is_dirty = true; 
 	std::cout << "Line " << line_number << " deleted successfully." << std::endl;
 	return 0;
 }
@@ -229,9 +251,15 @@ int main()
 				delete_line(lines);
 			}
 
-			if (input == "e") {
+			// ask for confirmation when exiting if there are unsaved changes
+			if (input == "e" || input == "exit") {
+				if (is_dirty) {
+					if (!dialogue_comfirm("You have unsaved changes. Are you sure you want to exit?")) {
+						continue;
+					}
+				}
 				break;
 			}
-		}
+		}	
 	}
 }
