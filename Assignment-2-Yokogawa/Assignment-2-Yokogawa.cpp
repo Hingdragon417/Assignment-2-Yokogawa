@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <climits>
 #include <limits>
+#include "Logger.h"
 
 using namespace std;
 
@@ -95,6 +96,7 @@ int addLine(std::vector<std::string>& lines) {
 	std::getline(std::cin, line);
 	line = trim(line);
 	if (line.empty()) {
+		Logger::Log("Attempted to add empty line.");
 		std::cout << "Error: Input cannot be empty. Line not added." << std::endl;
 		return 1;
 	}
@@ -123,7 +125,7 @@ bool fileExists(const std::string& filename) {
  * Returns: std::string - the trimmed user input
  */
 std::string validateInput(const std::string& prompt, bool allowEmpty = false) {
-	while (true) {
+
 		std::cout << prompt;
 		std::string input;
 		std::getline(std::cin, input);
@@ -131,13 +133,10 @@ std::string validateInput(const std::string& prompt, bool allowEmpty = false) {
 
 		if (input.empty() && !allowEmpty) {
 			std::cout << "Error: Input cannot be empty. Please try again." << std::endl;
-			continue;
 		}
 		return input;
 	}
-}
-
-/*
+/*           
  * Name: validateIntInput
  * Purpose: Prompt the user for an integer within a specified range.
  * Inputs: prompt - const std::string& - prompt text
@@ -364,4 +363,4 @@ int main()
 		}
 	}
 	return 0;
-}
+} 
