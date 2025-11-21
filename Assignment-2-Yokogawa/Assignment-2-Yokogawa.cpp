@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <climits>
 #include <limits>
+#include <thread>
+#include <chrono>
 #include "Logger.h"
 
 using namespace std;
@@ -96,7 +98,8 @@ int addLine(std::vector<std::string>& lines) {
 	std::getline(std::cin, line);
 	line = trim(line);
 	if (line.empty()) {
-		Logger::Log("Attempted to add empty line.");
+		Logger logger;
+		logger.Log("Attempted to add an empty line.", LogLevel::WARNING);
 		std::cout << "Error: Input cannot be empty. Line not added." << std::endl;
 		return 1;
 	}
@@ -126,17 +129,18 @@ bool fileExists(const std::string& filename) {
  */
 std::string validateInput(const std::string& prompt, bool allowEmpty = false) {
 
-		std::cout << prompt;
-		std::string input;
-		std::getline(std::cin, input);
-		input = trim(input);
+	std::cout << prompt;
+	std::string input;
+	std::getline(std::cin, input);
+	input = trim(input);
 
-		if (input.empty() && !allowEmpty) {
-			std::cout << "Error: Input cannot be empty. Please try again." << std::endl;
-		}
-		return input;
+	if (input.empty() && !allowEmpty) {
+		std::cout << "Error: Input cannot be empty. Please try again." << std::endl;
 	}
-/*           
+	return input;
+}
+
+/*
  * Name: validateIntInput
  * Purpose: Prompt the user for an integer within a specified range.
  * Inputs: prompt - const std::string& - prompt text
@@ -316,6 +320,24 @@ int deleteLine(std::vector<std::string>& lines) {
 }
 
 /*
+ * Name: spamLogfile
+ * Purpose: Rapidly write many log entries to the logfile for testing rotation.
+ * Inputs: count - number of messages to write
+ *         delayMs - milliseconds to wait between messages (0 = no delay)
+ * Returns: void
+ */
+void spamLogfile(int count, int delayMs = 0) {
+	Logger logger;
+	for (int i = 1; i <= count; ++i) {
+		logger.Log("Spam message #" + std::to_string(i), LogLevel::INFO);
+		std::cout << "Logged spam message " << i << std::endl;
+		if (delayMs > 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+		}
+	}
+}
+
+/*
  * Name: main
  * Purpose: Entry point and command loop.
  * Inputs: none
@@ -327,7 +349,7 @@ int main()
 
 	while (true) {
 		std::cout << "Enter a string (or 'exit' to quit): ";
-		std::cout << "\nOptions: (a)dd line, (p)rint lines, (r)ead file, (i)nsert line before, (w)rite to file, (d)elete line, (e)xit" << std::endl;
+		std::cout << "\nOptions: (a)dd line, (p)rint lines, (r)ead file, (i)nsert line before, (w)rite to file, (d)elete line, (s)pam logfile, (e)xit" << std::endl;
 		std::string input;
 		std::getline(std::cin, input);
 		input = trim(input);
@@ -353,6 +375,11 @@ int main()
 		else if (input == "d") {
 			deleteLine(lines);
 		}
+		else if (input == "s") {
+			int count = validateIntInput("Number of messages to send: ", 1, 1000000);
+			int delay = validateIntInput("Delay (ms) between messages (0 for none): ", 0, 60000);
+			spamLogfile(count, delay);
+		}
 		else if (input == "e" || input == "exit") {
 			if (isDirty) {
 				if (!dialogConfirm("You have unsaved changes. Are you sure you want to exit?")) {
@@ -363,4 +390,4 @@ int main()
 		}
 	}
 	return 0;
-} 
+}
