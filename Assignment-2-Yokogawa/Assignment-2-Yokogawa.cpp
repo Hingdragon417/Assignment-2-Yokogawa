@@ -9,6 +9,7 @@
 #include <thread>
 #include <chrono>
 #include "Logger.h"
+#include <stdio.h>
 
 using namespace std;
 
@@ -19,6 +20,7 @@ using namespace std;
  * Returns: bool (true if buffer has unsaved changes)
  */
 static bool isDirty = false;
+const char* CUSTOM_LOG_PATH = "Downloads";
 
 /*
  * Name: writeToFile (forward declaration)
@@ -84,6 +86,28 @@ void printLineStats(const std::vector<std::string>& lines, const std::string& fi
 	std::cout << "File '" << filename << "': " << count
 		<< " lines. Shortest = " << minLen
 		<< ", Longest = " << maxLen << std::endl;
+}
+
+std::vector<std::string> readFileDirect(const std::string& filename) {
+	std::ifstream file(filename);
+	if (!file) {
+		std::cerr << "Error: Could not open file '" << filename << "' for reading." << std::endl;
+		return std::vector<std::string>();
+	}
+
+
+	std::string line;
+	std::vector<std::string> lines; 
+	while (std::getline(file, line)) {
+		line = trim(line);
+		if (!line.empty()) {
+			lines.push_back(line);
+		}
+	}
+
+	file.close();
+	printLineStats(lines, filename);
+	return lines;
 }
 
 /*
@@ -257,7 +281,7 @@ int writeToFile(const std::vector<std::string>& lines, const std::string& filena
 	if (fileExists(finalName)) {
 		if (!dialogConfirm("File already exists. Would you like to overwrite it?")) {
 			std::cout << "File overwrite cancelled, no changes made." << std::endl;
-			return 0; // Exit early
+			return 0; 
 		}
 	}
 
@@ -327,7 +351,7 @@ int deleteLine(std::vector<std::string>& lines) {
  * Returns: void
  */
 void spamLogfile(int count, int delayMs = 0) {
-	Logger logger;
+	Logger logger(CUSTOM_LOG_PATH);
 	for (int i = 1; i <= count; ++i) {
 		logger.Log("Spam message #" + std::to_string(i), LogLevel::INFO);
 		std::cout << "Logged spam message " << i << std::endl;
@@ -343,9 +367,19 @@ void spamLogfile(int count, int delayMs = 0) {
  * Inputs: none
  * Returns: int
  */
-int main()
+int main(int argc, char* argv[])
 {
 	std::vector<std::string> lines;
+
+	if (argc > 1) {
+		std::string arg = argv[1];
+		if (arg.size() < 4 || arg.substr(arg.size() - 4) != ".txt") {
+			arg += ".txt";
+		}
+		std::cout << "Reading file from command line argument: " << arg << std::endl;
+		lines = readFileDirect(arg);
+	}
+	
 
 	while (true) {
 		std::cout << "Enter a string (or 'exit' to quit): ";

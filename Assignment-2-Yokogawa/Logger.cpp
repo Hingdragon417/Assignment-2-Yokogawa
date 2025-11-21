@@ -8,21 +8,20 @@
 #include <algorithm>
 #include <vector>
 
-void Logger::Log(const std::string& message)
-{
+Logger::Logger(const std::string& logPath) : logPath(logPath) {}
+
+void Logger::Log(const std::string& message) {
     Log(message, LogLevel::INFO);
 }
 
-std::size_t countLines(const std::string& path) {
+std::size_t Logger::countLines(const std::string& path) const {
     std::ifstream f(path);
     if (!f) return 0;
     return std::count(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>(), '\n');
 }
 
-void TrimOldestLinesForAppend() {
-    const std::string fileName = "logfile";
-    const std::string finalName = fileName + ".txt";
-    const int MAX_MESSAGES = 5;
+void Logger::TrimOldestLinesForAppend(int maxMessages) const {
+    const std::string finalName = MakeFinalLogPath(this->logPath);
 
     std::ifstream infile(finalName);
     if (!infile.is_open()) {
@@ -36,12 +35,14 @@ void TrimOldestLinesForAppend() {
     }
     infile.close();
 
-    if (static_cast<int>(lines.size()) < MAX_MESSAGES) {
+    if (static_cast<int>(lines.size()) + 1 <= maxMessages) {
         return;
     }
 
-    if (!lines.empty()) {
-        lines.erase(lines.begin());
+    std::size_t removeCount = (lines.size() + 1) - static_cast<std::size_t>(maxMessages);
+    if (removeCount >= lines.size()) {
+        std::ofstream ofs(finalName, std::ios::trunc);
+        return;
     }
 
     std::ofstream outfile(finalName, std::ios::trunc);
@@ -50,18 +51,32 @@ void TrimOldestLinesForAppend() {
         return;
     }
 
-    for (const auto& l : lines) {
-        outfile << l << '\n';
+    for (std::size_t i = removeCount; i < lines.size(); ++i) {
+        outfile << lines[i] << '\n';
     }
     outfile.close();
 }
 
-void Logger::Log(const std::string& message, LogLevel level)
-{
-    TrimOldestLinesForAppend();
+std::string Logger::MakeFinalLogPath(const std::string& logPath) const{
+    if (logPath.empty()) {
+        return "logfile.txt";
+    }
+    char last = logPath.back();
+    if (last == '/' || last == '\\') {
+        return logPath + "logfile.txt";
+    }
+    if (logPath.size() >= 4 && logPath.substr(logPath.size() - 4) == ".txt") {
+        return logPath;
+    }
+    return logPath + ".txt";
+}
 
-    std::string fileName = "logfile";
-    std::string finalName = fileName + ".txt";
+void Logger::Log(const std::string& message, LogLevel level) {
+    const int MAX_MESSAGES = 5;
+
+    TrimOldestLinesForAppend(MAX_MESSAGES);
+
+    std::string finalName = MakeFinalLogPath(logPath);
 
     std::ofstream outfile(finalName, std::ios::app);
     if (!outfile) {
@@ -79,4 +94,3 @@ void Logger::Log(const std::string& message, LogLevel level)
 
     outfile << levelStr << message << std::endl;
 }
-
